@@ -17,16 +17,18 @@ The goal is to make these flows clear and dependable for a user. We have not pre
 
 Swagger's server selector uses `https://ts.idicorp.ir` for HTTP requests. The WebSocket routes are documented here with their complete secure URLs.
 
-### Sign-in
+## API endpoints
+
+### Sign-in endpoints
 
 | Method | Path | What it does |
 | --- | --- | --- |
-| `GET` | `/api/auth/login` | Returns JSON with `captcha` (a JPEG data URL) and `salt` (the mock salt). Keep the returned `salt` and send that exact value in the sign-in request. |
+| `GET` | `/api/auth/login` | Returns JSON with `captcha` (a Base64-encoded JPEG data URL in the form `data:image/jpeg;base64,<payload>`) and `salt` (the mock salt). The Base64 image payload follows the comma. Keep the returned `salt` and send that exact value in the sign-in request. |
 | `POST` | `/api/auth/login` | Accepts JSON fields `username`, `password`, `salt`, and `captcha_answer`. On success, returns `access_token` and `token_type`, and sets an HTTP-only session cookie. |
 
-Protected HTTP requests need the access token as a Bearer token and the session cookie. The browser must include credentials when making those requests. A failed or missing session returns `401`.
+Protected HTTP endpoints need the access token as a Bearer token and the session cookie. The browser must include credentials when making those requests. A failed or missing session returns `401`.
 
-### Tasks
+### Task endpoints
 
 All task routes require a signed-in session.
 
@@ -43,9 +45,11 @@ A task response contains `id`, `title`, `description`, `completed`, `created_at`
 
 Task changes are simulated: a successful write response acknowledges that request, but does not change the sample collection returned by later reads.
 
-### WebSocket authentication
+### WebSocket endpoints
 
 The two WebSocket endpoints use different authentication flows.
+
+#### Calculator: `/ws/calculator`
 
 Connect to `wss://ts.idicorp.ir/ws/calculator` and send the access token as the first JSON message within one second:
 
@@ -55,13 +59,7 @@ Connect to `wss://ts.idicorp.ir/ws/calculator` and send the access token as the 
 
 If the token is valid, the service replies with `{"type":"ready"}`. If the token is invalid, the message is malformed, or no message arrives within one second, it sends `{"error":"Unauthorized"}` and closes the connection.
 
-Connect to `wss://ts.idicorp.ir/ws/echo` and authenticate during the opening HTTP handshake.
-
-The service rejects unauthenticated handshakes. After a successful connection, it sends `{"type":"ready"}`.
-
-### Calculator over WebSocket
-
-After connecting to `wss://ts.idicorp.ir/ws/calculator` and receiving the `ready` message, send calculator requests with an operation and a list of numbers. The supported operations are `add`, `subtract`, `multiply`, and `divide`:
+After receiving `ready`, send calculator requests with an operation and a list of numbers. The supported operations are `add`, `subtract`, `multiply`, and `divide`:
 
 | Operation | Behavior |
 | --- | --- |
@@ -78,11 +76,11 @@ The `operation` field defaults to `add` when omitted. Provide between 1 and 100 
 
 A valid request returns `{"result": <number>}`. An invalid request returns `{"error":"Invalid calculator request"}` and leaves the connection open.
 
-### Text echo over WebSocket
+#### Text echo: `/ws/echo`
 
-Connect to `wss://ts.idicorp.ir/ws/echo`. After the `ready` message, send text; the service echoes each text message on the same connection. The connection can be used for multiple messages.
+After a successful connection, it sends `{"type":"ready"}`. Then send text messages; the service echoes each message on the same connection. The connection can be used for multiple messages.
 
-### HTTP streaming echo
+### Streaming echo endpoint: `POST /api/echo/stream`
 
 `POST /api/echo/stream` accepts an authenticated request body and streams the same bytes back. The response uses the request's content type when provided, or `application/octet-stream` otherwise.
 
