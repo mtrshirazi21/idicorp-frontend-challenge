@@ -55,18 +55,22 @@ Connect to `wss://ts.idicorp.ir/ws/calculator` and send the access token as the 
 
 If the token is valid, the service replies with `{"type":"ready"}`. If the token is invalid, the message is malformed, or no message arrives within one second, it sends `{"error":"Unauthorized"}` and closes the connection.
 
-Connect to `wss://ts.idicorp.ir/ws/echo` and authenticate during the opening HTTP handshake. Include the access token and the session cookie from sign-in in the handshake headers:
-
-```http
-Authorization: Bearer <access_token>
-Cookie: session=<session_cookie>
-```
+Connect to `wss://ts.idicorp.ir/ws/echo` and authenticate during the opening HTTP handshake.
 
 The service rejects unauthenticated handshakes. After a successful connection, it sends `{"type":"ready"}`.
 
 ### Calculator over WebSocket
 
 After connecting to `wss://ts.idicorp.ir/ws/calculator` and receiving the `ready` message, send calculator requests with an operation and a list of numbers. The supported operations are `add`, `subtract`, `multiply`, and `divide`:
+
+| Operation | Behavior |
+| --- | --- |
+| `add` | Adds all numbers in the list. |
+| `subtract` | Starts with the first number and subtracts each remaining number from it. |
+| `multiply` | Multiplies all numbers in the list. |
+| `divide` | Starts with the first number and divides it by each remaining number in order. |
+
+The `operation` field defaults to `add` when omitted. Provide between 1 and 100 finite numbers, each with an absolute value no greater than `1,000,000,000,000`. Division by zero is invalid.
 
 ```json
 {"operation":"add","numbers":[10,20]}
@@ -108,3 +112,7 @@ The repository must include:
 Keep generated build output optional; do not use it as a replacement for source files. The app must run as a standalone front-end without integration into the backend, and must load its assets from the front-end app or its static host rather than relying on the backend to serve or proxy them.
 
 Document any assumptions about the service.
+
+## Reporting a problem
+
+If you encounter a problem or issue, open an issue in this repository and explain the problem there. We will respond to your issue in the repository.
