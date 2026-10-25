@@ -24,9 +24,9 @@ Swagger's server selector uses `https://ts.idicorp.ir` for HTTP requests. The We
 | Method | Path | What it does |
 | --- | --- | --- |
 | `GET` | `/api/auth/login` | Returns JSON with `captcha` (a Base64-encoded JPEG data URL in the form `data:image/jpeg;base64,<payload>`) and `salt` (the mock salt). The Base64 image payload follows the comma. Keep the returned `salt` and send that exact value in the sign-in request. |
-| `POST` | `/api/auth/login` | Accepts JSON fields `username`, `password`, `salt`, and `captcha_answer`. On success, returns `access_token` and `token_type`, and sets an HTTP-only session cookie. |
+| `POST` | `/api/auth/login` | Accepts JSON fields `username`, `password`, `salt`, and `captcha_answer`. On success, returns `access_token` and `token_type`, and sets HTTP-only `session` and `task_session` cookies. `task_session` contains a UUID bound to the signed access token and scopes task data to that login session. |
 
-Protected HTTP endpoints need the access token as a Bearer token and the session cookie. The browser must include credentials when making those requests. A failed or missing session returns `401`.
+Protected HTTP endpoints need the access token as a Bearer token and the `session` cookie. Task endpoints also require the `task_session` cookie set by login. The browser must include credentials when making those requests. A failed or missing session returns `401`.
 
 ### Task endpoints
 
@@ -34,16 +34,16 @@ All task routes require a signed-in session.
 
 | Method | Path | What it does |
 | --- | --- | --- |
-| `GET` | `/api/tasks` | Returns the sample tasks. Optional `completed=true` or `completed=false` filters by completion; optional `q` searches titles and descriptions without case sensitivity. |
-| `GET` | `/api/tasks/{id}` | Returns a sample task by ID, or `404` if that ID is not in the sample set. |
+| `GET` | `/api/tasks` | Returns the signed-in session's tasks. A new task session starts with the two sample tasks. Optional `completed=true` or `completed=false` filters by completion; optional `q` searches titles and descriptions without case sensitivity. |
+| `GET` | `/api/tasks/{id}` | Returns a task by ID, or `404` if that ID is not in the signed-in session's collection. |
 | `POST` | `/api/tasks` | Accepts `title`, optional `description`, and optional `completed`; returns `201` with a task-shaped response. |
-| `PUT` | `/api/tasks/{id}` | Replaces a task. Requires `title`, `description`, and `completed`; returns the updated task-shaped response for a positive ID. |
-| `PATCH` | `/api/tasks/{id}` | Updates one or more of `title`, `description`, and `completed`; returns the task-shaped response for a positive ID. |
-| `DELETE` | `/api/tasks/{id}` | Returns `204` for a positive ID. |
+| `PUT` | `/api/tasks/{id}` | Replaces an existing task. Requires `title`, `description`, and `completed`; returns `404` if the task does not exist in this session. |
+| `PATCH` | `/api/tasks/{id}` | Updates one or more fields of an existing task; returns `404` if it does not exist in this session. |
+| `DELETE` | `/api/tasks/{id}` | Deletes an existing task and returns `204`, or `404` if it does not exist in this session. |
 
-A task response contains `id`, `title`, `description`, `completed`, `created_at`, and `updated_at`. Titles can be up to 120 characters and descriptions up to 2,000 characters. Invalid input returns `422`; requests may return `429` when rate-limited.
+A task response contains `id`, `title`, `description`, `completed`, `created_at`, and `updated_at`. Titles can be up to 120 characters and descriptions up to 2,000 characters. Invalid input returns `422`; Redis unavailability returns `503`.
 
-Task changes are simulated: a successful write response acknowledges that request, but does not change the sample collection returned by later reads.
+Tasks are stored in Redis under keys in the form `<task_session_uuid>:task_<id>`. Each task expires one hour after it is created or last updated. Set `REDIS_URL` to override the default `redis://localhost:6379/0` connection. A new successful login creates a new task session and therefore a separate task collection.
 
 ### WebSocket endpoints
 
@@ -94,7 +94,7 @@ After a successful connection, it sends `{"type":"ready"}`. Then send text messa
 - Loading, empty, validation, authentication, network, and service errors are communicated clearly.
 - The client works on common screen sizes and can be operated with a keyboard, with clear labels and visible focus states.
 
-The API's interactive reference is available at `/docs` on the API host. Account for the service's actual responses and the fact that task writes are not persisted.
+The API's interactive reference is available at `/docs` on the API host. Account for the service's actual responses and the one-hour task lifetime.
 
 ## Submission
 
